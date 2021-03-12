@@ -4,6 +4,12 @@ const bcrypt = require('bcrypt-nodejs');
 const cors = require('cors');
 const knex = require('knex');
 
+
+const register = require('./controllers/register');
+const signin = require('./controllers/signin');
+const profile = require('./controllers/profile');
+const image = require('./controllers/image');
+
 const db = knex({
     client: 'pg',
     connection: {
@@ -28,99 +34,18 @@ app.get('/', (req, res)=>{
 })
 
 // check for sign in
-app.post('/signin', (req, res) => {
-    db.select('email', 'hash').from('login')
-      .where('email', '=', req.body.email)
-      .then(data => {
-          const isValid = bcrypt.compareSync(req.body.password, data[0].hash);
-          if (isValid) {
-              return db.select('*').from('users') // Don't forgot the return
-                        .where('email', '=', req.body.email)
-                        .then(user => {
-                            res.json(user[0])
-                        })
-                        .catch(err => res.status(400).json('Unable to get user'))
-          } else {
-              res.status(400).json('Wrong credentials')
-          }
-      })
-      .catch(err => res.status(400).json('Wrong credentials'))
-})
+app.post('/signin', (req, res) =>  { signin.handleSignin(req, res, db, bcrypt) })
 
 // enter new user to database
-app.post('/register', (req, res) => {
-    const {email, name, password} = req.body;
-    const hash = bcrypt.hashSync(password);
-    db.transaction(trx => {
-        trx.insert({
-            hash: hash,
-            email: email
-        })
-        .into('login')
-        .returning('email')
-        .then(loginEmail => {
-            return trx('users') // here has to be trx not db
-            .returning('*') // users return all the columns
-            .insert({
-                email: loginEmail[0], // returning array
-                name: name,
-                joined: new Date()
-            })
-            .then(user => { // respond to the Front-End
-                res.json(user[0]); // respond the first thing in array
-            })
-        })
-        .then(trx.commit)
-        .catch(trx.rollback)
-    })
-        .catch(err => res.status(400).json('The email is repeated'))    
-})
+app.post('/register', (req, res) => { register.handleRegister(req, res, db, bcrypt) }) // one of the options to import 
 
 // find user by userID
-app.get('/profile/:id', (req, res) => {
-   const { id } = req.params;
-//    let found = false;
-    db.select('*').from('users')
-        // .where({
-        //     id: id
-        // })
-        .where({id}) // same approach
-        .then(user => {
-            if (user.length) {
-                // console.log(user[0]);
-                res.json(user[0])
-            } else {
-                res.status(400).json('Not found')
-            }
-            
-        })
-        .catch(err => res.status(400).json('Not found'))
-//    if (!found) {
-//        res.status(400).json('not found');
-//    }
-})
+app.get('/profile/:id', (req, res) => { profile.handleProfileGet(req, res, db) })
 
-app.put('/image', (req, res) => {
-    const {id} = req.body;
-    db('users').where('id', '=', id) // where the id equals to the id that we received in the body
-      .increment('entries', 1)
-      .returning('entries')
-      .then(entries => {
-          res.json(entries[0]);
-      })
-      .catch(err => res.status(400).json('Unable to get entries'))
-    // let found = false;
-    // database.users.forEach(user => {
-    //     if (user.id === id) {
-    //         found = true;
-    //         user.entries++
-    //         return res.json(user.entries);
-    //     }
-    // })
-    // if (!found) {
-    //     res.status(400).json('not found');
-    // }
-})
+// entry increment
+app.put('/image', (req, res) => { image.handleImage(req, res, db) })
+
+app.post('/imageurl', (req, res) => { image.handleApiCall(req, res) })
 
 app.listen(3000, () => {
     console.log('app is running on port 3000');
@@ -133,3 +58,5 @@ app.listen(3000, () => {
     /profile/:userId --> GET = user
     /image --> PUT --> user
 */ 
+
+
