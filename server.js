@@ -34,7 +34,7 @@ app.get('/', (req, res)=>{
 })
 
 // check for sign in
-app.post('/signin', (req, res) =>  { signin.handleSignin(req, res, db, bcrypt) })
+app.post('/signin', signin.handleSignin(db, bcrypt))
 
 // enter new user to database
 app.post('/register', (req, res) => { register.handleRegister(req, res, db, bcrypt) }) // one of the options to import 
